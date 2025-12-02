@@ -484,3 +484,4 @@ $RECYCLE.BIN/
 *.swp
 
 credentials.json
+token.json
