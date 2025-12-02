@@ -24,7 +24,8 @@ try
         {
             var msgRequest = service.Users.Messages.Get("me", messageItem.Id);
             var message = await msgRequest.ExecuteAsync();
-            Console.WriteLine($"- {message.Snippet}");
+            var dateTime = ConvertUnixEpochToDateTime(message.InternalDate);
+            Console.WriteLine($"- {dateTime?.ToLocalTime()}: {message.Snippet} (ID: {message.Id})");
         }
     }
     else
@@ -39,4 +40,9 @@ catch (FileNotFoundException)
 catch (Exception e)
 {
     Console.WriteLine("An error occurred: " + e.Message);
+}
+
+static DateTimeOffset? ConvertUnixEpochToDateTime(long? epochMs)
+{
+    return epochMs.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(epochMs.Value) : null;
 }
