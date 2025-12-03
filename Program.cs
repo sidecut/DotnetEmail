@@ -89,6 +89,7 @@ try
 
                 var dates = await Task.WhenAll(tasks);
                 allDates.AddRange(dates);
+                totalMessages += dates.Count(d => d.HasValue);
             }
 
             foreach (var date in allDates)
@@ -103,7 +104,6 @@ try
                     {
                         dateCountMap[date.Value] = 1;
                     }
-                    totalMessages++;
                 }
             }
         }
@@ -115,7 +115,7 @@ try
     periodicTimer.Dispose();
 
     // Display results
-    Console.WriteLine("\nSpam emails by date:");
+    Console.WriteLine("\rSpam emails by date:");
     if (dateCountMap.Count > 0)
     {
         foreach (var kvp in dateCountMap.OrderByDescending(x => x.Key))
