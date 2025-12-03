@@ -120,7 +120,7 @@ try
     {
         foreach (var kvp in dateCountMap.OrderBy(x => x.Key))
         {
-            Console.WriteLine($"{kvp.Key:yyyy-MM-dd}: {kvp.Value} email(s)");
+            Console.WriteLine($"{kvp.Key:ddd} {kvp.Key:yyyy-MM-dd} {kvp.Value}");
         }
         Console.WriteLine($"\nTotal: {totalMessages} spam email(s)");
     }
