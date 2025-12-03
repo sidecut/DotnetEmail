@@ -118,7 +118,7 @@ try
     Console.WriteLine("\rSpam emails by date:");
     if (dateCountMap.Count > 0)
     {
-        foreach (var kvp in dateCountMap.OrderByDescending(x => x.Key))
+        foreach (var kvp in dateCountMap.OrderBy(x => x.Key))
         {
             Console.WriteLine($"{kvp.Key:yyyy-MM-dd}: {kvp.Value} email(s)");
         }
