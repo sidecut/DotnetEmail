@@ -37,11 +37,21 @@ try
     string? pageToken = null;
     int totalMessages = 0;
 
+    var periodicTimer = new System.Timers.Timer(100)
+    {
+        AutoReset = true,
+        Enabled = true
+    };
+    periodicTimer.Start();
+    periodicTimer.Elapsed += (sender, e) =>
+    {
+        Console.Write($"\r{totalMessages} spam emails processed...");
+    };
+
     do
     {
         request.PageToken = pageToken;
         ListMessagesResponse response = await request.ExecuteAsync();
-        Console.Write("=");
 
         if (response.Messages != null && response.Messages.Count > 0)
         {
@@ -54,7 +64,6 @@ try
 
                 var tasks = batch.Select(async messageItem =>
                 {
-                    Console.Write(".");
                     var msgRequest = service.Users.Messages.Get("me", messageItem.Id);
                     msgRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Minimal; // Only get minimal data
                     var message = await msgRequest.ExecuteAsync();
@@ -99,6 +108,9 @@ try
 
         pageToken = response.NextPageToken;
     } while (pageToken != null);
+
+    periodicTimer.Stop();
+    periodicTimer.Dispose();
 
     // Display results
     Console.WriteLine("\nSpam emails by date:");
