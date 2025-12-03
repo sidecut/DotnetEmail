@@ -45,33 +45,42 @@ try
 
         if (response.Messages != null && response.Messages.Count > 0)
         {
-            var tasks = response.Messages.Select(async messageItem =>
+            var allDates = new List<DateOnly?>();
+
+            // Process messages in batches of 10
+            for (int i = 0; i < response.Messages.Count; i += 10)
             {
-                Console.Write(".");
-                var msgRequest = service.Users.Messages.Get("me", messageItem.Id);
-                msgRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Minimal; // Only get minimal data
-                var message = await msgRequest.ExecuteAsync();
+                var batch = response.Messages.Skip(i).Take(10).ToList();
 
-                var dateTime = ConvertUnixEpochToDateTime(message.InternalDate);
-
-                if (dateTime.HasValue)
+                var tasks = batch.Select(async messageItem =>
                 {
-                    // Check if message is within the days limit
-                    if (cutoffDate.HasValue && dateTime.Value < cutoffDate.Value)
+                    Console.Write(".");
+                    var msgRequest = service.Users.Messages.Get("me", messageItem.Id);
+                    msgRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Minimal; // Only get minimal data
+                    var message = await msgRequest.ExecuteAsync();
+
+                    var dateTime = ConvertUnixEpochToDateTime(message.InternalDate);
+
+                    if (dateTime.HasValue)
                     {
-                        return (DateOnly?)null; // Skip messages older than the cutoff
+                        // Check if message is within the days limit
+                        if (cutoffDate.HasValue && dateTime.Value < cutoffDate.Value)
+                        {
+                            return (DateOnly?)null; // Skip messages older than the cutoff
+                        }
+
+                        var date = DateOnly.FromDateTime(dateTime.Value.ToLocalTime().DateTime);
+                        return (DateOnly?)date;
                     }
 
-                    var date = DateOnly.FromDateTime(dateTime.Value.ToLocalTime().DateTime);
-                    return (DateOnly?)date;
-                }
+                    return (DateOnly?)null;
+                });
 
-                return (DateOnly?)null;
-            });
+                var dates = await Task.WhenAll(tasks);
+                allDates.AddRange(dates);
+            }
 
-            var dates = await Task.WhenAll(tasks);
-
-            foreach (var date in dates)
+            foreach (var date in allDates)
             {
                 if (date.HasValue)
                 {
