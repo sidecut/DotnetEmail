@@ -2,35 +2,94 @@
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 
-Console.WriteLine("Gmail API .NET Quickstart");
+Console.WriteLine("Spam Folder Email Counter");
+
+// Parse optional days parameter from command line arguments
+int? daysLimit = null;
+if (args.Length > 0 && int.TryParse(args[0], out int days))
+{
+    daysLimit = days;
+    Console.WriteLine($"Limiting to emails from the last {days} day(s)");
+}
 
 try
 {
     var service = await GmailServiceHelper.GetGmailService();
 
-    // Define parameters of request.
+    // Define parameters of request to get spam messages
     UsersResource.MessagesResource.ListRequest request = service.Users.Messages.List("me");
-    request.MaxResults = 10;
-    request.LabelIds = new List<string> { "INBOX" };
-    request.IncludeSpamTrash = false;
+    request.LabelIds = new List<string> { "SPAM" };
+    request.IncludeSpamTrash = true;
+    request.MaxResults = 500; // Fetch more messages at once
 
-    // List messages.
-    ListMessagesResponse response = await request.ExecuteAsync();
-    IList<Message> messages = response.Messages;
-    Console.WriteLine("Messages:");
-    if (messages != null && messages.Count > 0)
+    // Dictionary to store date counts
+    var dateCountMap = new Dictionary<DateOnly, int>();
+
+    // Calculate cutoff date if days limit is specified
+    DateTimeOffset? cutoffDate = null;
+    if (daysLimit.HasValue)
     {
-        foreach (var messageItem in messages)
+        cutoffDate = DateTimeOffset.UtcNow.AddDays(-daysLimit.Value);
+    }
+
+    // Fetch all messages (handle pagination)
+    string? pageToken = null;
+    int totalMessages = 0;
+
+    do
+    {
+        request.PageToken = pageToken;
+        ListMessagesResponse response = await request.ExecuteAsync();
+
+        if (response.Messages != null && response.Messages.Count > 0)
         {
-            var msgRequest = service.Users.Messages.Get("me", messageItem.Id);
-            var message = await msgRequest.ExecuteAsync();
-            var dateTime = ConvertUnixEpochToDateTime(message.InternalDate);
-            Console.WriteLine($"- {dateTime?.ToLocalTime()}: {message.Snippet} (ID: {message.Id})");
+            foreach (var messageItem in response.Messages)
+            {
+                var msgRequest = service.Users.Messages.Get("me", messageItem.Id);
+                msgRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Minimal; // Only get minimal data
+                var message = await msgRequest.ExecuteAsync();
+
+                var dateTime = ConvertUnixEpochToDateTime(message.InternalDate);
+
+                if (dateTime.HasValue)
+                {
+                    // Check if message is within the days limit
+                    if (cutoffDate.HasValue && dateTime.Value < cutoffDate.Value)
+                    {
+                        continue; // Skip messages older than the cutoff
+                    }
+
+                    var date = DateOnly.FromDateTime(dateTime.Value.ToLocalTime().DateTime);
+
+                    if (dateCountMap.ContainsKey(date))
+                    {
+                        dateCountMap[date]++;
+                    }
+                    else
+                    {
+                        dateCountMap[date] = 1;
+                    }
+                    totalMessages++;
+                }
+            }
         }
+
+        pageToken = response.NextPageToken;
+    } while (pageToken != null);
+
+    // Display results
+    Console.WriteLine("\nSpam emails by date:");
+    if (dateCountMap.Count > 0)
+    {
+        foreach (var kvp in dateCountMap.OrderByDescending(x => x.Key))
+        {
+            Console.WriteLine($"{kvp.Key:yyyy-MM-dd}: {kvp.Value} email(s)");
+        }
+        Console.WriteLine($"\nTotal: {totalMessages} spam email(s)");
     }
     else
     {
-        Console.WriteLine("No messages found.");
+        Console.WriteLine("No spam messages found.");
     }
 }
 catch (FileNotFoundException)
