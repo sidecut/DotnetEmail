@@ -40,11 +40,13 @@ try
     {
         request.PageToken = pageToken;
         ListMessagesResponse response = await request.ExecuteAsync();
+        Console.Write("=");
 
         if (response.Messages != null && response.Messages.Count > 0)
         {
             foreach (var messageItem in response.Messages)
             {
+                Console.Write(".");
                 var msgRequest = service.Users.Messages.Get("me", messageItem.Id);
                 msgRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Minimal; // Only get minimal data
                 var message = await msgRequest.ExecuteAsync();
