@@ -45,7 +45,7 @@ try
 
         if (response.Messages != null && response.Messages.Count > 0)
         {
-            foreach (var messageItem in response.Messages)
+            var tasks = response.Messages.Select(async messageItem =>
             {
                 Console.Write(".");
                 var msgRequest = service.Users.Messages.Get("me", messageItem.Id);
@@ -59,18 +59,29 @@ try
                     // Check if message is within the days limit
                     if (cutoffDate.HasValue && dateTime.Value < cutoffDate.Value)
                     {
-                        continue; // Skip messages older than the cutoff
+                        return (DateOnly?)null; // Skip messages older than the cutoff
                     }
 
                     var date = DateOnly.FromDateTime(dateTime.Value.ToLocalTime().DateTime);
+                    return (DateOnly?)date;
+                }
 
-                    if (dateCountMap.ContainsKey(date))
+                return (DateOnly?)null;
+            });
+
+            var dates = await Task.WhenAll(tasks);
+
+            foreach (var date in dates)
+            {
+                if (date.HasValue)
+                {
+                    if (dateCountMap.ContainsKey(date.Value))
                     {
-                        dateCountMap[date]++;
+                        dateCountMap[date.Value]++;
                     }
                     else
                     {
-                        dateCountMap[date] = 1;
+                        dateCountMap[date.Value] = 1;
                     }
                     totalMessages++;
                 }
