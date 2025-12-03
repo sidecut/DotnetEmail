@@ -21,6 +21,7 @@ try
     request.LabelIds = new List<string> { "SPAM" };
     request.IncludeSpamTrash = true;
     request.MaxResults = 500; // Fetch more messages at once
+    request.Q = daysLimit.HasValue ? $"after:{DateTimeOffset.UtcNow.AddDays(-daysLimit.Value).ToUnixTimeSeconds()}" : ""; // Query to fetch spam messages after a certain date
 
     // Dictionary to store date counts
     var dateCountMap = new Dictionary<DateOnly, int>();
