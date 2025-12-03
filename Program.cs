@@ -47,7 +47,7 @@ try
     periodicTimer.Start();
     periodicTimer.Elapsed += (sender, e) =>
     {
-        Console.Write($"\r{totalMessages} spam emails processed...");
+        Console.Write($"\r{totalMessages}");
     };
 
     do
