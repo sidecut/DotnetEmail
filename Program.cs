@@ -2,6 +2,8 @@
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 
+const int MaxThreads = 20;
+
 Console.WriteLine("Spam Folder Email Counter");
 
 // Parse optional days parameter from command line arguments
@@ -57,10 +59,10 @@ try
         {
             var allDates = new List<DateOnly?>();
 
-            // Process messages in batches of 10
-            for (int i = 0; i < response.Messages.Count; i += 10)
+            // Process messages in batches of MaxThreads
+            for (int i = 0; i < response.Messages.Count; i += MaxThreads)
             {
-                var batch = response.Messages.Skip(i).Take(10).ToList();
+                var batch = response.Messages.Skip(i).Take(MaxThreads).ToList();
 
                 var tasks = batch.Select(async messageItem =>
                 {
