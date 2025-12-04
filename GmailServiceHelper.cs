@@ -20,7 +20,7 @@ namespace DotnetEmail
                 // automatically when the authorization flow completes for the first time.
                 string credPath = "token.json";
                 credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    GoogleClientSecrets.FromStream(stream).Secrets,
+                    (await GoogleClientSecrets.FromStreamAsync(stream)).Secrets,
                     Scopes,
                     "user",
                     CancellationToken.None,
