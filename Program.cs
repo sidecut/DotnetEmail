@@ -95,9 +95,16 @@ try
 
             foreach (var date in allDates)
             {
-                if (date.HasValue && !dateCountMap.TryAdd(date.Value, 1))
+                if (date.HasValue)
                 {
-                    dateCountMap[date.Value]++;
+                    if (dateCountMap.ContainsKey(date.Value))
+                    {
+                        dateCountMap[date.Value]++;
+                    }
+                    else
+                    {
+                        dateCountMap[date.Value] = 1;
+                    }
                 }
             }
         }
