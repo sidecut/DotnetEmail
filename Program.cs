@@ -45,10 +45,9 @@ try
         Enabled = true
     };
     periodicTimer.Start();
-    var messages = totalMessages;
     periodicTimer.Elapsed += (sender, e) =>
     {
-        Console.Write($"\r{messages}");
+        Console.Write($"\r{totalMessages}");
     };
 
     do
