@@ -1,4 +1,5 @@
-﻿using DotnetEmail;
+﻿using System.Diagnostics;
+using DotnetEmail;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 
@@ -13,6 +14,8 @@ if (args.Length > 0 && int.TryParse(args[0], out int days))
     daysLimit = days;
     Console.WriteLine($"Limiting to emails from the last {days} day(s)");
 }
+DateTimeOffset dateLimit = daysLimit.HasValue ? DateTimeOffset.Now.Date.AddDays(-daysLimit.Value) : DateTimeOffset.MinValue;
+Console.WriteLine($"Counting spam emails since: {dateLimit:O}\n");
 
 try
 {
@@ -23,7 +26,7 @@ try
     request.LabelIds = new List<string> { "SPAM" };
     request.IncludeSpamTrash = true;
     request.MaxResults = 500; // Fetch more messages at once
-    request.Q = daysLimit.HasValue ? $"after:{DateTimeOffset.UtcNow.AddDays(-daysLimit.Value).ToUnixTimeSeconds()}" : ""; // Query to fetch spam messages after a certain date
+    request.Q = daysLimit.HasValue ? $"after:{dateLimit.ToUnixTimeSeconds()}" : ""; // Query to fetch spam messages after midnight of the specified days ago
 
     // Dictionary to store date counts
     var dateCountMap = new Dictionary<DateOnly, int>();
