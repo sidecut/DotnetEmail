@@ -11,7 +11,7 @@ int? daysLimit = null;
 if (args.Length > 0 && int.TryParse(args[0], out int days))
 {
     daysLimit = days;
-    Console.WriteLine($"Limiting to emails from the last {days} day(s)");
+    Console.WriteLine($"Limiting to emails from the last {days} day(s), i.e., since {DateTimeOffset.Now.AddDays(-days)}");
 }
 
 try
