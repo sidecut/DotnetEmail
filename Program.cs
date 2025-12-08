@@ -7,12 +7,17 @@ const int MaxThreads = 20;
 Console.WriteLine("Spam Folder Email Counter");
 
 // Parse optional days parameter from command line arguments
-int? daysLimit = null;
+int daysLimit = 30;
 if (args.Length > 0 && int.TryParse(args[0], out int days))
 {
     daysLimit = days;
-    Console.WriteLine($"Limiting to emails from the last {days} day(s), i.e., since {DateTimeOffset.Now.AddDays(-days)}");
 }
+// Compute cutoff date as midnight local time 'daysLimit' days ago
+
+var cutoffDate = DateTimeOffset.Now.Date.AddDays(-daysLimit);
+
+Console.WriteLine($"Limiting to emails from the last {daysLimit} day(s), i.e., since {cutoffDate:yyyy-MM-dd}.");
+
 
 try
 {
@@ -22,18 +27,13 @@ try
     UsersResource.MessagesResource.ListRequest request = service.Users.Messages.List("me");
     request.LabelIds = new List<string> { "SPAM" };
     request.IncludeSpamTrash = true;
-    request.MaxResults = 500; // Fetch more messages at once
-    request.Q = daysLimit.HasValue ? $"after:{DateTimeOffset.UtcNow.AddDays(-daysLimit.Value).ToUnixTimeSeconds()}" : ""; // Query to fetch spam messages after a certain date
+    // Fetch more messages at once
+    request.MaxResults = 500;
+    // Query to fetch spam messages after a certain date
+    request.Q = daysLimit > 0 ? $"after:{new DateTimeOffset(cutoffDate).ToUnixTimeSeconds()}" : "";
 
     // Dictionary to store date counts
     var dateCountMap = new Dictionary<DateOnly, int>();
-
-    // Calculate cutoff date if days limit is specified
-    DateTimeOffset? cutoffDate = null;
-    if (daysLimit.HasValue)
-    {
-        cutoffDate = DateTimeOffset.UtcNow.AddDays(-daysLimit.Value);
-    }
 
     // Fetch all messages (handle pagination)
     string? pageToken = null;
@@ -75,7 +75,7 @@ try
                     if (dateTime.HasValue)
                     {
                         // Check if message is within the days limit
-                        if (cutoffDate.HasValue && dateTime.Value < cutoffDate.Value)
+                        if (dateTime.Value < cutoffDate)
                         {
                             return (DateOnly?)null; // Skip messages older than the cutoff
                         }
