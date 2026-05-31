@@ -18,7 +18,10 @@ async fn main() {
         match args[1].parse::<i64>() {
             Ok(d) => d,
             Err(_) => {
-                eprintln!("Warning: invalid days argument '{}', defaulting to 30.", args[1]);
+                eprintln!(
+                    "Warning: invalid days argument '{}', defaulting to 30.",
+                    args[1]
+                );
                 30
             }
         }
@@ -105,9 +108,7 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
                 for result in results {
                     if let Ok((_, message)) = result {
                         if let Some(epoch_ms) = message.internal_date {
-                            if let Some(dt) =
-                                chrono::DateTime::from_timestamp_millis(epoch_ms)
-                            {
+                            if let Some(dt) = chrono::DateTime::from_timestamp_millis(epoch_ms) {
                                 let local_date = dt.with_timezone(&Local).date_naive();
                                 if local_date >= cutoff {
                                     *date_count_map.entry(local_date).or_insert(0) += 1;
@@ -135,7 +136,12 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
         let mut sorted: Vec<_> = date_count_map.iter().collect();
         sorted.sort_by_key(|(date, _)| *date);
         for (date, count) in sorted {
-            println!("{} {} {}", date.format("%a"), date.format("%Y-%m-%d"), count);
+            println!(
+                "{} {} {}",
+                date.format("%a"),
+                date.format("%Y-%m-%d"),
+                count
+            );
         }
         println!("\nTotal: {} spam email(s)", total);
     } else {

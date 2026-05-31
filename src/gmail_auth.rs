@@ -17,10 +17,9 @@ pub async fn get_gmail_service() -> Result<GmailHub, Box<dyn std::error::Error>>
         .build();
 
     // Build a dedicated HTTP client for the OAuth2 installed-flow authenticator.
-    let auth_client = hyper_util::client::legacy::Client::builder(
-        hyper_util::rt::TokioExecutor::new(),
-    )
-    .build(connector.clone());
+    let auth_client =
+        hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+            .build(connector.clone());
 
     let auth = yup_oauth2::InstalledFlowAuthenticator::with_client(
         secret,
