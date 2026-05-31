@@ -52,6 +52,12 @@ async fn main() {
 async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::error::Error>> {
     let hub = gmail_auth::get_gmail_service().await?;
 
+    // Force OAuth/token acquisition once on the main path before any spawned/concurrent work.
+    // This prevents multiple workers from trying to open the browser flow at the same time.
+    println!("Initializing Gmail auth/token (one-time) before starting workers...");
+    let _ = hub.users().get_profile("me").doit().await?;
+    println!("Gmail auth ready. Starting concurrent message processing...");
+
     let query = if days_limit > 0 {
         let cutoff_secs = Local
             .from_local_datetime(&cutoff.and_hms_opt(0, 0, 0).unwrap())
