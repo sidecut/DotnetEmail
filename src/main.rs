@@ -4,11 +4,13 @@ use chrono::{Local, NaiveDate, TimeZone};
 use futures::future::join_all;
 use google_gmail1::api::Scope;
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{Error as IoError, ErrorKind, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use tokio::time::{timeout, Duration};
 
 const MAX_CONCURRENT: usize = 20;
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[tokio::main]
 async fn main() {
@@ -78,14 +80,23 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
 
     let mut date_count_map: HashMap<NaiveDate, usize> = HashMap::new();
     let mut page_token: Option<String> = None;
-    let total_messages = Arc::new(AtomicUsize::new(0));
+    let completed_messages = Arc::new(AtomicUsize::new(0));
+    let matched_messages = Arc::new(AtomicUsize::new(0));
+    let failed_messages = Arc::new(AtomicUsize::new(0));
 
-    let counter_clone = Arc::clone(&total_messages);
+    let completed_clone = Arc::clone(&completed_messages);
+    let matched_clone = Arc::clone(&matched_messages);
+    let failed_clone = Arc::clone(&failed_messages);
     let timer_handle = tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tokio::time::Duration::from_millis(100));
         loop {
             ticker.tick().await;
-            print!("\r{}", counter_clone.load(Ordering::Relaxed));
+            print!(
+                "\rCompleted: {}  Matched: {}  Failed: {}",
+                completed_clone.load(Ordering::Relaxed),
+                matched_clone.load(Ordering::Relaxed),
+                failed_clone.load(Ordering::Relaxed)
+            );
             let _ = std::io::stdout().flush();
         }
     });
@@ -106,7 +117,14 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
             list_call = list_call.page_token(token);
         }
 
-        let (_, response) = list_call.doit().await?;
+        let (_, response) = timeout(REQUEST_TIMEOUT, list_call.doit())
+            .await
+            .map_err(|_| {
+                IoError::new(
+                    ErrorKind::TimedOut,
+                    "Timed out while listing Gmail spam messages",
+                )
+            })??;
 
         if let Some(messages) = response.messages {
             let ids: Vec<String> = messages.iter().filter_map(|m| m.id.clone()).collect();
@@ -114,27 +132,50 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
             for chunk in ids.chunks(MAX_CONCURRENT) {
                 let futures: Vec<_> = chunk
                     .iter()
-                    .map(|id| {
-                        hub.users()
-                            .messages_get("me", id)
-                            .format("minimal")
-                            .add_scope(Scope::Readonly)
-                            .doit()
+                    .map(|id| async {
+                        let id = id.clone();
+                        let result = timeout(
+                            REQUEST_TIMEOUT,
+                            hub.users()
+                                .messages_get("me", &id)
+                                .format("minimal")
+                                .add_scope(Scope::Readonly)
+                                .doit(),
+                        )
+                        .await;
+
+                        (id, result)
                     })
                     .collect();
 
                 let results = join_all(futures).await;
 
-                for result in results {
-                    if let Ok((_, message)) = result {
-                        if let Some(epoch_ms) = message.internal_date {
-                            if let Some(dt) = chrono::DateTime::from_timestamp_millis(epoch_ms) {
-                                let local_date = dt.with_timezone(&Local).date_naive();
-                                if local_date >= cutoff {
-                                    *date_count_map.entry(local_date).or_insert(0) += 1;
-                                    total_messages.fetch_add(1, Ordering::Relaxed);
+                for (id, result) in results {
+                    completed_messages.fetch_add(1, Ordering::Relaxed);
+
+                    match result {
+                        Ok(Ok((_, message))) => {
+                            if let Some(epoch_ms) = message.internal_date {
+                                if let Some(dt) = chrono::DateTime::from_timestamp_millis(epoch_ms)
+                                {
+                                    let local_date = dt.with_timezone(&Local).date_naive();
+                                    if local_date >= cutoff {
+                                        *date_count_map.entry(local_date).or_insert(0) += 1;
+                                        matched_messages.fetch_add(1, Ordering::Relaxed);
+                                    }
                                 }
                             }
+                        }
+                        Ok(Err(err)) => {
+                            failed_messages.fetch_add(1, Ordering::Relaxed);
+                            eprintln!("\nWarning: failed to fetch message {id}: {err}");
+                        }
+                        Err(_) => {
+                            failed_messages.fetch_add(1, Ordering::Relaxed);
+                            eprintln!(
+                                "\nWarning: timed out fetching message {id} after {} seconds; skipping.",
+                                REQUEST_TIMEOUT.as_secs()
+                            );
                         }
                     }
                 }
@@ -149,7 +190,8 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
 
     timer_handle.abort();
 
-    let total = total_messages.load(Ordering::Relaxed);
+    let total = matched_messages.load(Ordering::Relaxed);
+    let failed = failed_messages.load(Ordering::Relaxed);
     println!("\rSpam emails by date:");
 
     if !date_count_map.is_empty() {
@@ -166,6 +208,10 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
         println!("\nTotal: {} spam email(s)", total);
     } else {
         println!("No spam messages found.");
+    }
+
+    if failed > 0 {
+        println!("Skipped {} message request(s) due to errors or timeouts.", failed);
     }
 
     Ok(())
