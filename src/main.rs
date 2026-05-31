@@ -15,7 +15,13 @@ async fn main() {
 
     let args: Vec<String> = std::env::args().collect();
     let days_limit: i64 = if args.len() > 1 {
-        args[1].parse::<i64>().unwrap_or(30)
+        match args[1].parse::<i64>() {
+            Ok(d) => d,
+            Err(_) => {
+                eprintln!("Warning: invalid days argument '{}', defaulting to 30.", args[1]);
+                30
+            }
+        }
     } else {
         30
     };

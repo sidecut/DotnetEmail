@@ -31,7 +31,7 @@ pub async fn get_gmail_service() -> Result<GmailHub, Box<dyn std::error::Error>>
     .build()
     .await?;
 
-    println!("Credential file saved to: token.json");
+    println!("Using token cache: token.json");
 
     // Build the API client, explicitly typed so the body type matches common::Body.
     let client: common::Client<GmailConnector> =
