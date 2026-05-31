@@ -485,5 +485,7 @@ $RECYCLE.BIN/
 
 credentials.json
 token.json
-DotnetEmail
-DotnetEmail.exe
+
+# Rust build output
+/target/
+Cargo.lock
