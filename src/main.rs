@@ -2,6 +2,7 @@ mod gmail_auth;
 
 use chrono::{Local, NaiveDate, TimeZone};
 use futures::future::join_all;
+use google_gmail1::api::Scope;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -55,7 +56,13 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
     // Force OAuth/token acquisition once on the main path before any spawned/concurrent work.
     // This prevents multiple workers from trying to open the browser flow at the same time.
     println!("Initializing Gmail auth/token (one-time) before starting workers...");
-    let _ = hub.users().get_profile("me").doit().await?;
+    let _ = hub
+        .users()
+        .messages_list("me")
+        .max_results(1)
+        .add_scope(Scope::Readonly)
+        .doit()
+        .await?;
     println!("Gmail auth ready. Starting concurrent message processing...");
 
     let query = if days_limit > 0 {
@@ -89,7 +96,8 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
             .messages_list("me")
             .add_label_ids("SPAM")
             .include_spam_trash(true)
-            .max_results(500);
+            .max_results(500)
+            .add_scope(Scope::Readonly);
 
         if !query.is_empty() {
             list_call = list_call.q(&query);
@@ -106,7 +114,13 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
             for chunk in ids.chunks(MAX_CONCURRENT) {
                 let futures: Vec<_> = chunk
                     .iter()
-                    .map(|id| hub.users().messages_get("me", id).format("minimal").doit())
+                    .map(|id| {
+                        hub.users()
+                            .messages_get("me", id)
+                            .format("minimal")
+                            .add_scope(Scope::Readonly)
+                            .doit()
+                    })
                     .collect();
 
                 let results = join_all(futures).await;
