@@ -489,3 +489,4 @@ token.json
 # Rust build output
 /target/
 # Cargo.lock
+rust-email
