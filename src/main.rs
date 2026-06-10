@@ -211,7 +211,10 @@ async fn run(days_limit: i64, cutoff: NaiveDate) -> Result<(), Box<dyn std::erro
     }
 
     if failed > 0 {
-        println!("Skipped {} message request(s) due to errors or timeouts.", failed);
+        println!(
+            "Skipped {} message request(s) due to errors or timeouts.",
+            failed
+        );
     }
 
     Ok(())
