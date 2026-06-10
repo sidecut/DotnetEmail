@@ -43,7 +43,9 @@ async fn main() {
         Ok(()) => {}
         Err(e) => {
             let msg = e.to_string();
-            if msg.contains("credentials.json") || msg.contains("os error 2") {
+            if msg.contains("os error 21") {
+                eprintln!("Error: it's likely that token.json is a directory instead of a file. Remove this directory or convert to a file.");
+            } else if msg.contains("credentials.json") || msg.contains("os error 2") {
                 eprintln!("Error: credentials.json not found. Please download it from Google Cloud Console and place it in the project directory.");
             } else {
                 eprintln!("An error occurred: {}", e);
